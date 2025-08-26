@@ -4,30 +4,31 @@
   <meta charset="utf-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>Yandex Map — Stretchy Icon</title>
+  <title>Yandex Map — Stretchy Icon (clean with open)</title>
   <style>
     html, body, #map {
       height: 100%; width: 100%;
       margin: 0; padding: 0;
-      border-radius: 8px;   /* скругление карты */
+      border-radius: 8px;
       overflow: hidden;
+      background: transparent;
     }
   </style>
   <script>
     const url = new URL(window.location.href);
-    const qp = (k,d=null) => url.searchParams.get(k) ?? d;
-    const qpf = (k,d) => { const v=parseFloat(qp(k,'')); return Number.isFinite(v)?v:d; };
+    const qp = (k,d=null)=>url.searchParams.get(k) ?? d;
+    const qpf=(k,d)=>{const v=parseFloat(qp(k,''));return Number.isFinite(v)?v:d};
 
     const CONFIG = {
       apiKey: qp('apiKey',''),
       lat:   qpf('lat',55.751244),
       lng:   qpf('lng',37.618423),
       zoom:  qpf('zoom',17),
-      text:  decodeURIComponent(qp('text','Метка').replace(/\+/g,'%20'))
+      text:  decodeURIComponent((qp('text','Метка')||'').replace(/\+/g,'%20'))
     };
 
     if (!CONFIG.apiKey) {
-      document.write('<pre>Ошибка: добавь ?apiKey=…</pre>');
+      document.write('<pre style="padding:12px">Ошибка: добавь ?apiKey=…</pre>');
     } else {
       const s=document.createElement('script');
       s.src='https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey='+encodeURIComponent(CONFIG.apiKey);
@@ -36,19 +37,35 @@
     }
 
     function init() {
-      const map = new ymaps.Map("map", {
+      const map = new ymaps.Map('map', {
         center: [CONFIG.lat, CONFIG.lng],
         zoom: CONFIG.zoom,
-        controls: ['zoomControl']
+        // оставим openBlock
+        controls: ['openBlock']
       });
 
-      const placemark = new ymaps.Placemark(
+      // добавляем zoomControl в верхний левый угол
+      map.controls.add(new ymaps.control.ZoomControl({
+        options: {
+          size: 'small',
+          position: { left: 10, top: 10 }
+        }
+      }));
+
+      // удалим лишние контролы, которые могут подгружаться
+      [
+        'routeButtonControl','trafficControl','typeSelector',
+        'searchControl','rulerControl','fullscreenControl',
+        'geolocationControl'
+      ].forEach(id => { try { map.controls.remove(id); } catch(_){} });
+
+      // метка
+      const pm = new ymaps.Placemark(
         [CONFIG.lat, CONFIG.lng],
         { iconContent: CONFIG.text },
-        { preset: 'islands#redStretchyIcon' } // <<< нужный стиль
+        { preset: 'islands#redStretchyIcon' }
       );
-
-      map.geoObjects.add(placemark);
+      map.geoObjects.add(pm);
     }
   </script>
 </head>
