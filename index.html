@@ -3,87 +3,95 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Yandex Map (WebView)</title>
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>Yandex Map — Single Custom Marker</title>
   <style>
-    html, body, #map {
-      height: 100%;
-      width: 100%;
+    html, body {
+      height: 100%; width: 100%;
       margin: 0; padding: 0;
-      background: transparent;
+      background: transparent; 
       overflow: hidden;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
+      border-radius: 8px;      /* скругление */
     }
-    .text-pin {
+    #map {
+      height: 100%; width: 100%;
+      border-radius: 8px;      /* скругление */
+      overflow: hidden;
+    }
+
+    /* --- Стили маркера как на скрине --- */
+    .ymk-wrapper {
+      position: relative;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,.25));
+    }
+
+    .ymk-pin {
+      position: absolute;
+      left: 0; top: 0;
+      transform: translate(-50%, -10px);
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: #ff3b30;
+      border: 6px solid #fff;
+      box-sizing: border-box;
+    }
+    .ymk-pin::after {
+      content: "";
+      position: absolute;
+      left: 50%; bottom: -14px;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 9px solid transparent;
+      border-right: 9px solid transparent;
+      border-top: 14px solid #ff3b30;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,.2));
+    }
+
+    .ymk-label {
       position: relative;
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: #ff3b30;
-      color: #fff;
-      font: 600 13px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
-      box-shadow: 0 4px 12px rgba(0,0,0,.25);
+      gap: 8px;
+      padding: 10px 14px 10px 48px;
+      background: #fff;
+      color: #000;
+      border-radius: 16px;
+      font: 600 16px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
       white-space: nowrap;
-      transform: translate(-50%, -100%);
-      pointer-events: auto;
+      max-width: 70vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .text-pin::after {
-      content: "";
+
+    .ymk-wrapper .ymk-pin { z-index: 2; }
+    .ymk-wrapper .ymk-label { z-index: 1; }
+
+    .ymk-hotzone {
       position: absolute;
-      left: 50%;
-      bottom: -6px;
-      transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 6px solid #ff3b30;
-      filter: drop-shadow(0 2px 2px rgba(0,0,0,.2));
+      left: -80px; top: -60px;
+      width: 220px; height: 120px;
+      background: transparent;
     }
   </style>
   <script>
-    // --- helpers to read query params safely ---
-    function qp(name, defVal=null) {
-      const url = new URL(window.location.href);
-      return url.searchParams.get(name) ?? defVal;
-    }
-    function qpFloat(name, defVal) {
-      const v = parseFloat(qp(name, ''));
-      return Number.isFinite(v) ? v : defVal;
-    }
-    function qpBool(name, defVal) {
-      const v = qp(name, null);
-      if (v === null) return defVal;
-      return ['1','true','yes','y','on'].includes(String(v).toLowerCase());
-    }
+    const url = new URL(window.location.href);
+    const qp = (k, d=null) => url.searchParams.get(k) ?? d;
+    const qpf = (k, d) => { const v = parseFloat(qp(k, '')); return Number.isFinite(v) ? v : d; };
+    const qpb = (k, d) => { const v = qp(k, null); if (v===null) return d; return ['1','true','yes','y','on'].includes(String(v).toLowerCase()); };
 
-    // read config from URL or fallbacks
     const CONFIG = {
-      apiKey: qp('apiKey', ''),                 // <— обязательно
-      lat:    qpFloat('lat', 55.751244),
-      lng:    qpFloat('lng', 37.618423),
-      zoom:   qpFloat('zoom', 12),
-      gestures: qpBool('gestures', true),
-      markers: []
+      apiKey: qp('apiKey', ''),
+      lat:   qpf('lat', 55.751244),
+      lng:   qpf('lng', 37.618423),
+      zoom:  qpf('zoom', 17),
+      gestures: qpb('gestures', true),
+      text: decodeURIComponent(qp('text','').replace(/\+/g,'%20'))
     };
 
-    // markers as URL-encoded JSON in &markers=
-    (function parseMarkers(){
-      const raw = qp('markers', '');
-      if (!raw) return;
-      try {
-        // param is URL-encoded JSON (encodeURIComponent on client)
-        const decoded = JSON.parse(decodeURIComponent(raw));
-        if (Array.isArray(decoded)) CONFIG.markers = decoded;
-      } catch (e) { /* ignore */ }
-    })();
-
-    // inject Yandex Maps script dynamically with apiKey
     if (!CONFIG.apiKey) {
-      document.write('<pre style="padding:12px">Ошибка: не передан параметр apiKey в URL.</pre>');
+      document.write('<pre style="padding:12px">Ошибка: добавь ?apiKey=… к URL</pre>');
     } else {
       const s = document.createElement('script');
       s.src = 'https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=' + encodeURIComponent(CONFIG.apiKey);
@@ -98,47 +106,32 @@
         center: [CONFIG.lat, CONFIG.lng],
         zoom: CONFIG.zoom,
         controls: ['zoomControl']
-      }, {
-        suppressMapOpenBlock: true
-      });
+      }, { suppressMapOpenBlock: true });
 
-      // gestures on/off
       map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('drag');
       map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('multiTouch');
       map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('scrollZoom');
 
-      // Text pill layout
-      const TextPinLayout = ymaps.templateLayoutFactory.createClass(
-        '<div class="text-pin">$[properties.text]</div>'
+      const MarkerLayout = ymaps.templateLayoutFactory.createClass(`
+        <div class="ymk-wrapper">
+          <div class="ymk-label">$[properties.text]</div>
+          <div class="ymk-pin"></div>
+          <div class="ymk-hotzone"></div>
+        </div>
+      `);
+
+      const placemark = new ymaps.Placemark(
+        [CONFIG.lat, CONFIG.lng],
+        { text: CONFIG.text || 'Метка' },
+        {
+          iconLayout: MarkerLayout,
+          iconShape: { type: 'Rectangle', coordinates: [[-110,-70],[110,10]] },
+          hasBalloon: false, hasHint: false,
+          zIndex: 1000
+        }
       );
 
-      // markers render
-      (CONFIG.markers || []).forEach(m => {
-        const lat = Number(m.lat), lng = Number(m.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-        // text => pill marker
-        if (typeof m.text === 'string' && m.text.trim() !== '') {
-          const placemark = new ymaps.Placemark(
-            [lat, lng],
-            { text: m.text },
-            {
-              iconLayout: TextPinLayout,
-              iconShape: { type: 'Rectangle', coordinates: [[-120,-44],[120,0]] },
-              hasBalloon: false, hasHint: false, zIndex: 1000
-            }
-          );
-          map.geoObjects.add(placemark);
-        } else {
-          // default red pin
-          const pm = new ymaps.Placemark(
-            [lat, lng],
-            m.props || {},
-            { preset: 'islands#redIcon' }
-          );
-          map.geoObjects.add(pm);
-        }
-      });
+      map.geoObjects.add(placemark);
     }
   </script>
 </head>
