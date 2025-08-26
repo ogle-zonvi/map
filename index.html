@@ -2,9 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>Yandex Map — Stretchy Icon (clean with open)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>Yandex Map — Stretchy Icon (clean + open)</title>
   <style>
     html, body, #map {
       height: 100%; width: 100%;
@@ -37,35 +36,29 @@
     }
 
     function init() {
+      // Не скрываем openBlock (ничего не ставим в suppressMapOpenBlock)
+      // Контролы уберем вручную после и добавим только зум.
       const map = new ymaps.Map('map', {
         center: [CONFIG.lat, CONFIG.lng],
         zoom: CONFIG.zoom,
-        // оставим openBlock
-        controls: ['openBlock']
+        controls: [] // стартуем без контролов — openBlock это не control
       });
 
-      // добавляем zoomControl в верхний левый угол
+      // Добавляем только зум сверху (можно сменить на { right:10, top:10 })
       map.controls.add(new ymaps.control.ZoomControl({
-        options: {
-          size: 'small',
-          position: { left: 10, top: 10 }
-        }
+        options: { size: 'small', position: { left: 10, top: 10 } }
       }));
 
-      // удалим лишние контролы, которые могут подгружаться
-      [
-        'routeButtonControl','trafficControl','typeSelector',
-        'searchControl','rulerControl','fullscreenControl',
-        'geolocationControl'
-      ].forEach(id => { try { map.controls.remove(id); } catch(_){} });
-
-      // метка
+      // Метка «как у Яндекса»
       const pm = new ymaps.Placemark(
         [CONFIG.lat, CONFIG.lng],
         { iconContent: CONFIG.text },
         { preset: 'islands#redStretchyIcon' }
       );
       map.geoObjects.add(pm);
+
+      // Оставляем openBlock «Открыть в Яндекс.Картах» — он отображается автоматически.
+      // Доп. панели (маршруты/линейка/поиск и т.д.) мы не добавляли, так что их нет.
     }
   </script>
 </head>
