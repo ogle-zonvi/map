@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Yandex Map (WebView)</title>
+  <style>
+    html, body, #map {
+      height: 100%;
+      width: 100%;
+      margin: 0; padding: 0;
+      background: transparent;
+      overflow: hidden;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .text-pin {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ff3b30;
+      color: #fff;
+      font: 600 13px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+      box-shadow: 0 4px 12px rgba(0,0,0,.25);
+      white-space: nowrap;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+    }
+    .text-pin::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid #ff3b30;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,.2));
+    }
+  </style>
+  <script>
+    // --- helpers to read query params safely ---
+    function qp(name, defVal=null) {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name) ?? defVal;
+    }
+    function qpFloat(name, defVal) {
+      const v = parseFloat(qp(name, ''));
+      return Number.isFinite(v) ? v : defVal;
+    }
+    function qpBool(name, defVal) {
+      const v = qp(name, null);
+      if (v === null) return defVal;
+      return ['1','true','yes','y','on'].includes(String(v).toLowerCase());
+    }
+
+    // read config from URL or fallbacks
+    const CONFIG = {
+      apiKey: qp('apiKey', ''),                 // <— обязательно
+      lat:    qpFloat('lat', 55.751244),
+      lng:    qpFloat('lng', 37.618423),
+      zoom:   qpFloat('zoom', 12),
+      gestures: qpBool('gestures', true),
+      markers: []
+    };
+
+    // markers as URL-encoded JSON in &markers=
+    (function parseMarkers(){
+      const raw = qp('markers', '');
+      if (!raw) return;
+      try {
+        // param is URL-encoded JSON (encodeURIComponent on client)
+        const decoded = JSON.parse(decodeURIComponent(raw));
+        if (Array.isArray(decoded)) CONFIG.markers = decoded;
+      } catch (e) { /* ignore */ }
+    })();
+
+    // inject Yandex Maps script dynamically with apiKey
+    if (!CONFIG.apiKey) {
+      document.write('<pre style="padding:12px">Ошибка: не передан параметр apiKey в URL.</pre>');
+    } else {
+      const s = document.createElement('script');
+      s.src = 'https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=' + encodeURIComponent(CONFIG.apiKey);
+      s.onload = () => window.ymaps && ymaps.ready(init);
+      s.onerror = () => document.body.innerHTML =
+        '<pre style="padding:12px">Не удалось загрузить Yandex Maps API.</pre>';
+      document.head.appendChild(s);
+    }
+
+    function init() {
+      const map = new ymaps.Map('map', {
+        center: [CONFIG.lat, CONFIG.lng],
+        zoom: CONFIG.zoom,
+        controls: ['zoomControl']
+      }, {
+        suppressMapOpenBlock: true
+      });
+
+      // gestures on/off
+      map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('drag');
+      map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('multiTouch');
+      map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('scrollZoom');
+
+      // Text pill layout
+      const TextPinLayout = ymaps.templateLayoutFactory.createClass(
+        '<div class="text-pin">$[properties.text]</div>'
+      );
+
+      // markers render
+      (CONFIG.markers || []).forEach(m => {
+        const lat = Number(m.lat), lng = Number(m.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        // text => pill marker
+        if (typeof m.text === 'string' && m.text.trim() !== '') {
+          const placemark = new ymaps.Placemark(
+            [lat, lng],
+            { text: m.text },
+            {
+              iconLayout: TextPinLayout,
+              iconShape: { type: 'Rectangle', coordinates: [[-120,-44],[120,0]] },
+              hasBalloon: false, hasHint: false, zIndex: 1000
+            }
+          );
+          map.geoObjects.add(placemark);
+        } else {
+          // default red pin
+          const pm = new ymaps.Placemark(
+            [lat, lng],
+            m.props || {},
+            { preset: 'islands#redIcon' }
+          );
+          map.geoObjects.add(pm);
+        }
+      });
+    }
+  </script>
+</head>
+<body>
+  <div id="map"></div>
+</body>
+</html>
