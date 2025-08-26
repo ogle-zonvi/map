@@ -4,131 +4,48 @@
   <meta charset="utf-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>Yandex Map — Single Custom Marker</title>
+  <title>Yandex Map — Stretchy Icon</title>
   <style>
-    html, body {
+    html, body, #map {
       height: 100%; width: 100%;
       margin: 0; padding: 0;
-      background: transparent; 
+      border-radius: 8px;   /* скругление карты */
       overflow: hidden;
-      border-radius: 8px;      /* скругление */
-    }
-    #map {
-      height: 100%; width: 100%;
-      border-radius: 8px;      /* скругление */
-      overflow: hidden;
-    }
-
-    /* --- Стили маркера как на скрине --- */
-    .ymk-wrapper {
-      position: relative;
-      transform: translate(-50%, -100%);
-      pointer-events: auto;
-      filter: drop-shadow(0 4px 12px rgba(0,0,0,.25));
-    }
-
-    .ymk-pin {
-      position: absolute;
-      left: 0; top: 0;
-      transform: translate(-50%, -10px);
-      width: 34px; height: 34px;
-      border-radius: 50%;
-      background: #ff3b30;
-      border: 6px solid #fff;
-      box-sizing: border-box;
-    }
-    .ymk-pin::after {
-      content: "";
-      position: absolute;
-      left: 50%; bottom: -14px;
-      transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 9px solid transparent;
-      border-right: 9px solid transparent;
-      border-top: 14px solid #ff3b30;
-      filter: drop-shadow(0 2px 2px rgba(0,0,0,.2));
-    }
-
-    .ymk-label {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px 10px 48px;
-      background: #fff;
-      color: #000;
-      border-radius: 16px;
-      font: 600 16px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      white-space: nowrap;
-      max-width: 70vw;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .ymk-wrapper .ymk-pin { z-index: 2; }
-    .ymk-wrapper .ymk-label { z-index: 1; }
-
-    .ymk-hotzone {
-      position: absolute;
-      left: -80px; top: -60px;
-      width: 220px; height: 120px;
-      background: transparent;
     }
   </style>
   <script>
     const url = new URL(window.location.href);
-    const qp = (k, d=null) => url.searchParams.get(k) ?? d;
-    const qpf = (k, d) => { const v = parseFloat(qp(k, '')); return Number.isFinite(v) ? v : d; };
-    const qpb = (k, d) => { const v = qp(k, null); if (v===null) return d; return ['1','true','yes','y','on'].includes(String(v).toLowerCase()); };
+    const qp = (k,d=null) => url.searchParams.get(k) ?? d;
+    const qpf = (k,d) => { const v=parseFloat(qp(k,'')); return Number.isFinite(v)?v:d; };
 
     const CONFIG = {
-      apiKey: qp('apiKey', ''),
-      lat:   qpf('lat', 55.751244),
-      lng:   qpf('lng', 37.618423),
-      zoom:  qpf('zoom', 17),
-      gestures: qpb('gestures', true),
-      text: decodeURIComponent(qp('text','').replace(/\+/g,'%20'))
+      apiKey: qp('apiKey',''),
+      lat:   qpf('lat',55.751244),
+      lng:   qpf('lng',37.618423),
+      zoom:  qpf('zoom',17),
+      text:  decodeURIComponent(qp('text','Метка').replace(/\+/g,'%20'))
     };
 
     if (!CONFIG.apiKey) {
-      document.write('<pre style="padding:12px">Ошибка: добавь ?apiKey=… к URL</pre>');
+      document.write('<pre>Ошибка: добавь ?apiKey=…</pre>');
     } else {
-      const s = document.createElement('script');
-      s.src = 'https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=' + encodeURIComponent(CONFIG.apiKey);
-      s.onload = () => window.ymaps && ymaps.ready(init);
-      s.onerror = () => document.body.innerHTML =
-        '<pre style="padding:12px">Не удалось загрузить Yandex Maps API.</pre>';
+      const s=document.createElement('script');
+      s.src='https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey='+encodeURIComponent(CONFIG.apiKey);
+      s.onload=()=>ymaps.ready(init);
       document.head.appendChild(s);
     }
 
     function init() {
-      const map = new ymaps.Map('map', {
+      const map = new ymaps.Map("map", {
         center: [CONFIG.lat, CONFIG.lng],
         zoom: CONFIG.zoom,
         controls: ['zoomControl']
-      }, { suppressMapOpenBlock: true });
-
-      map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('drag');
-      map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('multiTouch');
-      map.behaviors[CONFIG.gestures ? 'enable' : 'disable']('scrollZoom');
-
-      const MarkerLayout = ymaps.templateLayoutFactory.createClass(`
-        <div class="ymk-wrapper">
-          <div class="ymk-label">$[properties.text]</div>
-          <div class="ymk-pin"></div>
-          <div class="ymk-hotzone"></div>
-        </div>
-      `);
+      });
 
       const placemark = new ymaps.Placemark(
         [CONFIG.lat, CONFIG.lng],
-        { text: CONFIG.text || 'Метка' },
-        {
-          iconLayout: MarkerLayout,
-          iconShape: { type: 'Rectangle', coordinates: [[-110,-70],[110,10]] },
-          hasBalloon: false, hasHint: false,
-          zIndex: 1000
-        }
+        { iconContent: CONFIG.text },
+        { preset: 'islands#redStretchyIcon' } // <<< нужный стиль
       );
 
       map.geoObjects.add(placemark);
