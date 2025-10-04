@@ -23,7 +23,9 @@
       lat:   qpf('lat',55.751244),
       lng:   qpf('lng',37.618423),
       zoom:  qpf('zoom',17),
-      text:  decodeURIComponent((qp('text','Метка')||'').replace(/\+/g,'%20'))
+      text:  decodeURIComponent((qp('text','Метка')||'').replace(/\+/g,'%20')),
+      // New parameter for additional markers
+      markers: qp('markers', '')
     };
 
     if (!CONFIG.apiKey) {
@@ -49,13 +51,49 @@
         options: { size: 'small', position: { left: 10, top: 10 } }
       }));
 
-      // Метка «как у Яндекса»
-      const pm = new ymaps.Placemark(
-        [CONFIG.lat, CONFIG.lng],
-        { iconContent: CONFIG.text },
-        { preset: 'islands#redStretchyIcon' }
-      );
-      map.geoObjects.add(pm);
+      // Parse and add markers from URL parameters
+      const markersCollection = [];
+      
+      // Add main marker if coordinates are provided
+      if (CONFIG.lat && CONFIG.lng) {
+        markersCollection.push({
+          lat: CONFIG.lat,
+          lng: CONFIG.lng,
+          text: CONFIG.text,
+          preset: 'islands#redStretchyIcon'
+        });
+      }
+      
+      // Parse and add additional markers if provided
+      if (CONFIG.markers) {
+        try {
+          // Expected format: lat1,lng1,text1|lat2,lng2,text2|...
+          const markersData = CONFIG.markers.split('|');
+          markersData.forEach(marker => {
+            const [lat, lng, text] = marker.split(',');
+            if (lat && lng) {
+              markersCollection.push({
+                lat: parseFloat(lat),
+                lng: parseFloat(lng),
+                text: decodeURIComponent(text || '').replace(/\+/g, ' ') || 'Метка',
+                preset: 'islands#redStretchyIcon'
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing markers:', e);
+        }
+      }
+      
+      // Create placemarks for all markers
+      markersCollection.forEach(marker => {
+        const placemark = new ymaps.Placemark(
+          [marker.lat, marker.lng],
+          { iconContent: marker.text },
+          { preset: marker.preset }
+        );
+        map.geoObjects.add(placemark);
+      });
 
       // Оставляем openBlock «Открыть в Яндекс.Картах» — он отображается автоматически.
       // Доп. панели (маршруты/линейка/поиск и т.д.) мы не добавляли, так что их нет.
