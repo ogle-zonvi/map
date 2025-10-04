@@ -20,16 +20,16 @@
 
     const CONFIG = {
       apiKey: qp('apiKey',''),
-      lat:   qpf('lat',55.751244),
-      lng:   qpf('lng',37.618423),
+      // Removed lat and lng parameters completely
       zoom:  qpf('zoom',17),
-      text:  decodeURIComponent((qp('text','Метка')||'').replace(/\+/g,'%20')),
-      // New parameter for additional markers
+      // Keep only markers parameter
       markers: qp('markers', '')
     };
 
     if (!CONFIG.apiKey) {
       document.write('<pre style="padding:12px">Ошибка: добавь ?apiKey=…</pre>');
+    } else if (!CONFIG.markers) {
+      document.write('<pre style="padding:12px">Ошибка: добавь ?markers=…</pre>');
     } else {
       const s=document.createElement('script');
       s.src='https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey='+encodeURIComponent(CONFIG.apiKey);
@@ -38,10 +38,47 @@
     }
 
     function init() {
-      // Не скрываем openBlock (ничего не ставим в suppressMapOpenBlock)
-      // Контролы уберем вручную после и добавим только зум.
+      // Parse markers first to determine the center
+      let firstMarker = null;
+      const markersCollection = [];
+      
+      // Parse and add markers from URL parameters
+      if (CONFIG.markers) {
+        try {
+          // Expected format: lat1,lng1,text1|lat2,lng2,text2|...
+          const markersData = CONFIG.markers.split('|');
+          markersData.forEach((marker, index) => {
+            const [lat, lng, text] = marker.split(',');
+            if (lat && lng) {
+              const markerObj = {
+                lat: parseFloat(lat),
+                lng: parseFloat(lng),
+                text: decodeURIComponent(text || '').replace(/\+/g, ' ') || 'Метка',
+                preset: index === 0 ? 'islands#redStretchyIcon' : 'islands#blueStretchyIcon'
+              };
+              
+              markersCollection.push(markerObj);
+              
+              // Save the first marker for centering the map
+              if (index === 0) {
+                firstMarker = markerObj;
+              }
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing markers:', e);
+        }
+      }
+      
+      // Check if we have at least one marker
+      if (!firstMarker) {
+        document.write('<pre style="padding:12px">Ошибка: требуется хотя бы один маркер в параметрах</pre>');
+        return;
+      }
+      
+      // Create map centered on the first marker
       const map = new ymaps.Map('map', {
-        center: [CONFIG.lat, CONFIG.lng],
+        center: [firstMarker.lat, firstMarker.lng],
         zoom: CONFIG.zoom,
         controls: [] // стартуем без контролов — openBlock это не control
       });
@@ -51,40 +88,6 @@
         options: { size: 'small', position: { left: 10, top: 10 } }
       }));
 
-      // Parse and add markers from URL parameters
-      const markersCollection = [];
-      
-      // Add main marker if coordinates are provided
-      // if (CONFIG.lat && CONFIG.lng) {
-      //   markersCollection.push({
-      //     lat: CONFIG.lat,
-      //     lng: CONFIG.lng,
-      //     text: CONFIG.text,
-      //     preset: 'islands#redStretchyIcon'
-      //   });
-      // }
-      
-      // Parse and add additional markers if provided
-      if (CONFIG.markers) {
-        try {
-          // Expected format: lat1,lng1,text1|lat2,lng2,text2|...
-          const markersData = CONFIG.markers.split('|');
-          markersData.forEach(marker => {
-            const [lat, lng, text] = marker.split(',');
-            if (lat && lng) {
-              markersCollection.push({
-                lat: parseFloat(lat),
-                lng: parseFloat(lng),
-                text: decodeURIComponent(text || '').replace(/\+/g, ' ') || 'Метка',
-                preset: 'islands#redStretchyIcon'
-              });
-            }
-          });
-        } catch (e) {
-          console.error('Error parsing markers:', e);
-        }
-      }
-      
       // Create placemarks for all markers
       markersCollection.forEach(marker => {
         const placemark = new ymaps.Placemark(
